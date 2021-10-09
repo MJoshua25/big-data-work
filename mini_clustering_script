@@ -1,0 +1,35 @@
+
+#!/bin/bash
+
+echo “Suppression des fichiers existants…”
+hadoop fs -rm -r clustering
+hadoop fs -rm -r tragedy-seqfiles
+hadoop fs -rm -r tragedy-vectors
+hadoop fs -rm -r out-kmeans
+hadoop fs -rm -r out-kmeans-clusters
+
+hadoop fs -mkdir /full_text
+
+# On copie le fichier sur hdfs
+echo “Copie du dataset vers HDFS…”
+hadoop fs -put purchase_log.csv ~/clustering
+
+# On convertie en fichier de sequence sur HDFS
+echo “Convertion en sequences…”
+mahout seqdirectory -i clustering/ -o tragedy-seqfiles -c UTF-8 -chunk 5
+
+# On convertie le fichier de sequence en vecteur
+echo “Convertion en vecteurs en cours…”
+mahout seq2sparse -nv -i tragedy-seqfiles -o tragedy-vectors
+
+mahout canopy -i tragedy-vectors/tf-vectors -o tragedy-vectors/tragedy-canopy-centroids -dm org.apache.mahout.common.distance.CosineDistanceMeasure -t1 1500 -t2 2000
+
+# Execution KMeans 
+echo “KMeans en cours…”
+mahout kmeans -i tragedy-vectors/tfidf-vectors -c tragedy-canopy-centroids -o tragedy-kmeans-clusters -dm org.apache.mahout.common.distance.CosineDistanceMeasure --clustering -cl -cd 0.1 -ow -x 20 -k 10
+
+
+
+# Execution de cluster dump (visualisation du clusters)
+echo “Cluster dump en cours…”
+mahout clusterdump --input tragedy-kmeans-clusters/clusters-0 --output kmeans-dump.text
